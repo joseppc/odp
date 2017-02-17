@@ -1,0 +1,22 @@
+Helper scripts to check and set CPU isolation and execution of application in
+isolated CPU(s)
+
+Files:
+isolate-cpu.sh       isolates desired CPUs
+isolate-task.sh      uses isolate-cpu.sh to isolate CPUs before running
+                     the desired task. It also provides the possibility
+                     to trace kernel disturbance on the isolated CPUs.
+
+isolate-cpu.sh checks the kernel configuration and the kernel cmdline to
+ determine if one or several CPUs are isolated, i.e. it checks for;
+ CONFIG_NO_HZ_FULL_ALL=y", and CONFIG_RCU_NOCB_CPU_ALL=y" in the kernel config
+ and rcu_nocbs,nohz_full in the kernel cmdline.
+ If the desired CPU(s) are not inte the above configuration, it warns but continues
+ to isolate the CPU(s) as much as possibe. The isolation is accomplished by
+ - Redirecting all IRQ's away from desired isolated cores
+ - Using cset (cpuset) to move all running processes and kernel threads
+   away from desired isolated cores
+
+isolate-task.sh uses isolate-cpu.sh to isolate desired CPU(s). In addition
+ it starts the supplied application on isolated CPU(s) and optionally traces
+ the isolated CPU(s) for kernel interaction.
