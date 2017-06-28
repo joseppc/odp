@@ -35,6 +35,7 @@ extern "C" {
 #include <odp_packet_netmap.h>
 #include <odp_packet_tap.h>
 #include <odp_packet_dpdk.h>
+#include <odp_packet_virtio.h>
 
 #define PKTIO_NAME_LEN 256
 
@@ -127,6 +128,7 @@ struct pktio_entry {
 #endif
 		pkt_tap_t pkt_tap;		/**< using TAP for IO */
 		_ipc_pktio_t ipc;		/**< IPC pktio data */
+		pkt_virtio_t pkt_virtio;        /**< Using virtio for IO */
 	};
 	enum {
 		/* Not allocated */
@@ -262,6 +264,7 @@ extern const pktio_if_ops_t pcap_pktio_ops;
 #endif
 extern const pktio_if_ops_t tap_pktio_ops;
 extern const pktio_if_ops_t ipc_pktio_ops;
+extern const pktio_if_ops_t virtio_pktio_ops;
 extern const pktio_if_ops_t * const pktio_if_ops[];
 
 int sysfs_stats(pktio_entry_t *pktio_entry,

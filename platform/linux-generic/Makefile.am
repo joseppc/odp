@@ -188,6 +188,7 @@ noinst_HEADERS = \
 		  ${srcdir}/include/odp_packet_dpdk.h \
 		  ${srcdir}/include/odp_packet_socket.h \
 		  ${srcdir}/include/odp_packet_tap.h \
+		  ${srcdir}/include/odp_packet_virtio.h \
 		  ${srcdir}/include/odp_pkt_queue_internal.h \
 		  ${srcdir}/include/odp_pool_internal.h \
 		  ${srcdir}/include/odp_posix_extensions.h \
@@ -266,6 +267,7 @@ __LIB__libodp_linux_la_SOURCES = \
 			   pktio/socket_mmap.c \
 			   pktio/sysfs.c \
 			   pktio/tap.c \
+			   pktio/virtio.c \
 			   pktio/ring.c \
 			   odp_pkt_queue.c \
 			   odp_pool.c \
