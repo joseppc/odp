@@ -8,6 +8,7 @@
 #include <odp/api/std_types.h>
 #include <odp/drv/shm.h>
 #include <_ishm_internal.h>
+#include <_ishmphy_internal.h>
 #include <_ishmpool_internal.h>
 
 static inline uint32_t from_handle(odpdrv_shm_t shm)
@@ -139,6 +140,11 @@ void odpdrv_shm_pool_free(odpdrv_shm_pool_t pool, void *addr)
 int odpdrv_shm_pool_print(const char *title, odpdrv_shm_pool_t pool)
 {
 	return _odp_ishm_pool_status(title, (_odp_ishm_pool_t *)(void*)pool);
+}
+
+odpdrv_phys_addr_t odpdrv_getphy(const void *addr)
+{
+	return (odpdrv_phys_addr_t)_odp_ishmphy_getphy(addr);
 }
 
 /**

@@ -318,6 +318,9 @@ void odpdrv_shm_pool_free(odpdrv_shm_pool_t pool, void *addr);
  * specified pool to the ODP log. The intended use is for debugging.
  */
 int  odpdrv_shm_pool_print(const char *title, odpdrv_shm_pool_t pool);
+
+odpdrv_phys_addr_t odpdrv_getphy(const void *addr);
+
 /**
  * @}
  */

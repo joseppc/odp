@@ -220,6 +220,12 @@ int odp_init_global(odp_instance_t *instance,
 	}
 	stage = NAME_TABLE_INIT;
 
+	if (_odp_pci_init_global()) {
+		ODP_ERR("ODP pci init failed.\n");
+		goto init_failed;
+	}
+	/* stage = PCI_INIT */
+
 	if (_odpdrv_driver_init_global()) {
 		ODP_ERR("ODP drivers init failed\n");
 		goto init_failed;
@@ -425,6 +431,7 @@ int odp_init_local(odp_instance_t instance, odp_thread_type_t thr_type)
 		goto init_fail;
 	}
 	/* stage = DRIVER_INIT; */
+
 
 	return 0;
 

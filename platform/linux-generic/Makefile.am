@@ -235,6 +235,7 @@ __LIB__libodp_linux_la_SOURCES = \
 			   _ishm.c \
 			   _ishmphy.c \
 			   _ishmpool.c \
+			   _str_functions.c \
 			   _modules.c \
 			   odp_atomic.c \
 			   odp_barrier.c \
@@ -268,6 +269,7 @@ __LIB__libodp_linux_la_SOURCES = \
 			   pktio/sysfs.c \
 			   pktio/tap.c \
 			   pktio/virtio.c \
+			   pktio/virtio_pci.c \
 			   pktio/ring.c \
 			   odp_pkt_queue.c \
 			   odp_pool.c \
@@ -301,6 +303,8 @@ __LIB__libodp_linux_la_SOURCES = \
 			   drv_atomic.c \
 			   drv_barrier.c \
 			   drv_driver.c \
+			   drv_pci.c \
+			   drv_pci_uio.c \
 			   drv_shm.c \
 			   drv_spinlock.c
 
