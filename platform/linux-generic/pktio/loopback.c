@@ -78,13 +78,13 @@ static int loopback_recv(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 	if (odp_unlikely(len > QUEUE_MULTI_MAX))
 		len = QUEUE_MULTI_MAX;
 
-	odp_ticketlock_lock(&pktio_entry->s.rxl);
+	odp_ticketlock_lock(&pktio_entry->rxl);
 
 	queue = queue_fn->from_ext(pkt_lbk->loopq);
 	nbr = queue_fn->deq_multi(queue, hdr_tbl, len);
 
-	if (pktio_entry->s.config.pktin.bit.ts_all ||
-	    pktio_entry->s.config.pktin.bit.ts_ptp) {
+	if (pktio_entry->config.pktin.bit.ts_all ||
+	    pktio_entry->config.pktin.bit.ts_ptp) {
 		ts_val = odp_time_global();
 		ts = &ts_val;
 	}
@@ -139,25 +139,25 @@ static int loopback_recv(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 			}
 		} else {
 			packet_parse_layer(pkt_hdr,
-					   pktio_entry->s.config.parser.layer);
+					   pktio_entry->config.parser.layer);
 		}
 
 		packet_set_ts(pkt_hdr, ts);
-		pkt_hdr->input = pktio_entry->s.handle;
+		pkt_hdr->input = pktio_entry->handle;
 
 		/* Try IPsec inline processing */
-		if (pktio_entry->s.config.inbound_ipsec &&
+		if (pktio_entry->config.inbound_ipsec &&
 		    odp_packet_has_ipsec(pkt))
 			_odp_ipsec_try_inline(pkt);
 
-		pktio_entry->s.stats.in_octets += pkt_len;
+		pktio_entry->stats.in_octets += pkt_len;
 		pkts[num_rx++] = pkt;
 	}
 
-	pktio_entry->s.stats.in_errors += failed;
-	pktio_entry->s.stats.in_ucast_pkts += num_rx - failed;
+	pktio_entry->stats.in_errors += failed;
+	pktio_entry->stats.in_ucast_pkts += num_rx - failed;
 
-	odp_ticketlock_unlock(&pktio_entry->s.rxl);
+	odp_ticketlock_unlock(&pktio_entry->rxl);
 
 	return num_rx;
 }
@@ -181,7 +181,7 @@ static int loopback_send(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 		bytes += odp_packet_len(pkt_tbl[i]);
 	}
 
-	if (pktio_entry->s.config.outbound_ipsec)
+	if (pktio_entry->config.outbound_ipsec)
 		for (i = 0; i < len; ++i) {
 			odp_buffer_t buf = buf_from_buf_hdr(hdr_tbl[i]);
 			odp_ipsec_packet_result_t result;
@@ -197,20 +197,20 @@ static int loopback_send(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 						      ODP_EVENT_PACKET_BASIC);
 		}
 
-	odp_ticketlock_lock(&pktio_entry->s.txl);
+	odp_ticketlock_lock(&pktio_entry->txl);
 
 	queue = queue_fn->from_ext(pkt_lbk->loopq);
 	ret = queue_fn->enq_multi(queue, hdr_tbl, len);
 
 	if (ret > 0) {
-		pktio_entry->s.stats.out_ucast_pkts += ret;
-		pktio_entry->s.stats.out_octets += bytes;
+		pktio_entry->stats.out_ucast_pkts += ret;
+		pktio_entry->stats.out_octets += bytes;
 	} else {
 		ODP_DBG("queue enqueue failed %i\n", ret);
 		ret = -1;
 	}
 
-	odp_ticketlock_unlock(&pktio_entry->s.txl);
+	odp_ticketlock_unlock(&pktio_entry->txl);
 
 	return ret;
 }
@@ -273,13 +273,13 @@ static int loopback_promisc_mode_get(pktio_entry_t *pktio_entry)
 static int loopback_stats(pktio_entry_t *pktio_entry,
 			  odp_pktio_stats_t *stats)
 {
-	memcpy(stats, &pktio_entry->s.stats, sizeof(odp_pktio_stats_t));
+	memcpy(stats, &pktio_entry->stats, sizeof(odp_pktio_stats_t));
 	return 0;
 }
 
 static int loopback_stats_reset(pktio_entry_t *pktio_entry ODP_UNUSED)
 {
-	memset(&pktio_entry->s.stats, 0, sizeof(odp_pktio_stats_t));
+	memset(&pktio_entry->stats, 0, sizeof(odp_pktio_stats_t));
 	return 0;
 }
 

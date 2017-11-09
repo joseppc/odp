@@ -70,7 +70,7 @@ static int _ipc_master_start(pktio_entry_t *pktio_entry)
 
 	odp_atomic_store_u32(&pkt_ipc->ready, 1);
 
-	IPC_ODP_DBG("%s started.\n",  pktio_entry->s.name);
+	IPC_ODP_DBG("%s started.\n",  pktio_entry->name);
 	return 0;
 }
 
@@ -249,7 +249,7 @@ static int _ipc_slave_start(pktio_entry_t *pktio_entry)
 	char dev[ODP_POOL_NAME_LEN];
 	int pid;
 
-	if (sscanf(pktio_entry->s.name, "ipc:%d:%s", &pid, tail) != 2) {
+	if (sscanf(pktio_entry->name, "ipc:%d:%s", &pid, tail) != 2) {
 		ODP_ERR("wrong pktio name\n");
 		return -1;
 	}
@@ -314,7 +314,7 @@ static int _ipc_slave_start(pktio_entry_t *pktio_entry)
 	odp_atomic_store_u32(&pkt_ipc->ready, 1);
 	pinfo->slave.init_done = 1;
 
-	ODP_DBG("%s started.\n",  pktio_entry->s.name);
+	ODP_DBG("%s started.\n",  pktio_entry->name);
 	return 0;
 
 free_s_prod:
@@ -578,11 +578,11 @@ static int ipc_pktio_recv(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 {
 	int ret;
 
-	odp_ticketlock_lock(&pktio_entry->s.rxl);
+	odp_ticketlock_lock(&pktio_entry->rxl);
 
 	ret = ipc_pktio_recv_lockless(pktio_entry, pkt_table, len);
 
-	odp_ticketlock_unlock(&pktio_entry->s.rxl);
+	odp_ticketlock_unlock(&pktio_entry->rxl);
 
 	return ret;
 }
@@ -679,11 +679,11 @@ static int ipc_pktio_send(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 {
 	int ret;
 
-	odp_ticketlock_lock(&pktio_entry->s.txl);
+	odp_ticketlock_lock(&pktio_entry->txl);
 
 	ret = ipc_pktio_send_lockless(pktio_entry, pkt_table, len);
 
-	odp_ticketlock_unlock(&pktio_entry->s.txl);
+	odp_ticketlock_unlock(&pktio_entry->txl);
 
 	return ret;
 }
@@ -707,7 +707,7 @@ static int ipc_start(pktio_entry_t *pktio_entry)
 	uint32_t ready = odp_atomic_load_u32(&pkt_ipc->ready);
 
 	if (ready) {
-		ODP_ABORT("%s Already started\n", pktio_entry->s.name);
+		ODP_ABORT("%s Already started\n", pktio_entry->name);
 		return -1;
 	}
 
@@ -748,7 +748,7 @@ static int ipc_close(pktio_entry_t *pktio_entry)
 {
 	pktio_ops_ipc_data_t *pkt_ipc = odp_ops_data(pktio_entry, ipc);
 	char ipc_shm_name[ODP_POOL_NAME_LEN + sizeof("_m_prod")];
-	char *dev = pktio_entry->s.name;
+	char *dev = pktio_entry->name;
 	char name[ODP_POOL_NAME_LEN];
 	char tail[ODP_POOL_NAME_LEN];
 	int pid = 0;

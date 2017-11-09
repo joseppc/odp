@@ -47,7 +47,7 @@ int sysfs_stats(pktio_entry_t *pktio_entry,
 		odp_pktio_stats_t *stats)
 {
 	char fname[256];
-	const char *dev = pktio_entry->s.name;
+	const char *dev = pktio_entry->name;
 	int ret = 0;
 
 	sprintf(fname, "/sys/class/net/%s/statistics/rx_bytes", dev);

@@ -189,19 +189,19 @@ static int sock_setup_pkt(pktio_entry_t *pktio_entry, const char *netdev,
 	}
 
 	err = ethtool_stats_get_fd(pkt_sock->sockfd,
-				   pktio_entry->s.name,
+				   pktio_entry->name,
 				   &cur_stats);
 	if (err != 0) {
 		err = sysfs_stats(pktio_entry, &cur_stats);
 		if (err != 0) {
-			pktio_entry->s.stats_type = STATS_UNSUPPORTED;
+			pktio_entry->stats_type = STATS_UNSUPPORTED;
 			ODP_DBG("pktio: %s unsupported stats\n",
-				pktio_entry->s.name);
+				pktio_entry->name);
 		} else {
-		pktio_entry->s.stats_type = STATS_SYSFS;
+		pktio_entry->stats_type = STATS_SYSFS;
 		}
 	} else {
-		pktio_entry->s.stats_type = STATS_ETHTOOL;
+		pktio_entry->stats_type = STATS_ETHTOOL;
 	}
 
 	err = sock_stats_reset(pktio_entry);
@@ -272,10 +272,10 @@ static int sock_mmsg_recv(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 	int recv_msgs;
 	int i;
 
-	odp_ticketlock_lock(&pktio_entry->s.rxl);
+	odp_ticketlock_lock(&pktio_entry->rxl);
 
-	if (pktio_entry->s.config.pktin.bit.ts_all ||
-	    pktio_entry->s.config.pktin.bit.ts_ptp)
+	if (pktio_entry->config.pktin.bit.ts_all ||
+	    pktio_entry->config.pktin.bit.ts_ptp)
 		ts = &ts_val;
 
 	memset(msgvec, 0, sizeof(msgvec));
@@ -329,13 +329,13 @@ static int sock_mmsg_recv(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 			continue;
 		}
 
-		pkt_hdr->input = pktio_entry->s.handle;
+		pkt_hdr->input = pktio_entry->handle;
 
 		if (!pktio_cls_enabled(pktio_entry))
 			packet_parse_layer(pkt_hdr,
-					   pktio_entry->s.config.parser.layer);
+					   pktio_entry->config.parser.layer);
 
-		pkt_hdr->input = pktio_entry->s.handle;
+		pkt_hdr->input = pktio_entry->handle;
 		packet_set_ts(pkt_hdr, ts);
 
 		pkt_table[nb_rx++] = pkt;
@@ -345,7 +345,7 @@ static int sock_mmsg_recv(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 	for (; i < nb_pkts; i++)
 		odp_packet_free(pkt_table[i]);
 
-	odp_ticketlock_unlock(&pktio_entry->s.rxl);
+	odp_ticketlock_unlock(&pktio_entry->rxl);
 
 	return nb_rx;
 }
@@ -383,7 +383,7 @@ static int sock_mmsg_send(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 	int sockfd;
 	int n, i;
 
-	odp_ticketlock_lock(&pktio_entry->s.txl);
+	odp_ticketlock_lock(&pktio_entry->txl);
 
 	sockfd = pkt_sock->sockfd;
 	memset(msgvec, 0, sizeof(msgvec));
@@ -400,7 +400,7 @@ static int sock_mmsg_send(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 			if (i == 0 && SOCK_ERR_REPORT(errno)) {
 				__odp_errno = errno;
 				ODP_ERR("sendmmsg(): %s\n", strerror(errno));
-				odp_ticketlock_unlock(&pktio_entry->s.txl);
+				odp_ticketlock_unlock(&pktio_entry->txl);
 				return -1;
 			}
 			break;
@@ -409,7 +409,7 @@ static int sock_mmsg_send(pktio_entry_t *pktio_entry, int index ODP_UNUSED,
 		i += ret;
 	}
 
-	odp_ticketlock_unlock(&pktio_entry->s.txl);
+	odp_ticketlock_unlock(&pktio_entry->txl);
 
 	for (n = 0; n < i; ++n)
 		odp_packet_free(pkt_table[n]);
@@ -451,7 +451,7 @@ static int sock_promisc_mode_set(pktio_entry_t *pktio_entry,
 		odp_ops_data(pktio_entry, socket);
 
 	return promisc_mode_set_fd(pkt_sock->sockfd,
-				   pktio_entry->s.name, enable);
+				   pktio_entry->name, enable);
 }
 
 /*
@@ -463,7 +463,7 @@ static int sock_promisc_mode_get(pktio_entry_t *pktio_entry)
 		odp_ops_data(pktio_entry, socket);
 
 	return promisc_mode_get_fd(pkt_sock->sockfd,
-				   pktio_entry->s.name);
+				   pktio_entry->name);
 }
 
 static int sock_link_status(pktio_entry_t *pktio_entry)
@@ -472,7 +472,7 @@ static int sock_link_status(pktio_entry_t *pktio_entry)
 		odp_ops_data(pktio_entry, socket);
 
 	return link_status_fd(pkt_sock->sockfd,
-			      pktio_entry->s.name);
+			      pktio_entry->name);
 }
 
 static int sock_capability(pktio_entry_t *pktio_entry ODP_UNUSED,
@@ -496,7 +496,7 @@ static int sock_stats(pktio_entry_t *pktio_entry,
 	pktio_ops_socket_data_t *pkt_sock =
 		odp_ops_data(pktio_entry, socket);
 
-	if (pktio_entry->s.stats_type == STATS_UNSUPPORTED) {
+	if (pktio_entry->stats_type == STATS_UNSUPPORTED) {
 		memset(stats, 0, sizeof(*stats));
 		return 0;
 	}
@@ -509,8 +509,8 @@ static int sock_stats_reset(pktio_entry_t *pktio_entry)
 	pktio_ops_socket_data_t *pkt_sock =
 		odp_ops_data(pktio_entry, socket);
 
-	if (pktio_entry->s.stats_type == STATS_UNSUPPORTED) {
-		memset(&pktio_entry->s.stats, 0,
+	if (pktio_entry->stats_type == STATS_UNSUPPORTED) {
+		memset(&pktio_entry->stats, 0,
 		       sizeof(odp_pktio_stats_t));
 		return 0;
 	}

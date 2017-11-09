@@ -443,7 +443,7 @@ int odp_pktio_default_cos_set(odp_pktio_t pktio_in, odp_cos_t default_cos)
 		return -1;
 	}
 
-	entry->s.cls.default_cos = cos;
+	entry->cls.default_cos = cos;
 	return 0;
 }
 
@@ -464,7 +464,7 @@ int odp_pktio_error_cos_set(odp_pktio_t pktio_in, odp_cos_t error_cos)
 		return -1;
 	}
 
-	entry->s.cls.error_cos = cos;
+	entry->cls.error_cos = cos;
 	return 0;
 }
 
@@ -477,7 +477,7 @@ int odp_pktio_skip_set(odp_pktio_t pktio_in, uint32_t offset)
 		return -1;
 	}
 
-	entry->s.cls.skip = offset;
+	entry->cls.skip = offset;
 	return 0;
 }
 
@@ -489,7 +489,7 @@ int odp_pktio_headroom_set(odp_pktio_t pktio_in, uint32_t headroom)
 		ODP_ERR("Invalid odp_pktio_t handle");
 		return -1;
 	}
-	entry->s.cls.headroom = headroom;
+	entry->cls.headroom = headroom;
 	return 0;
 }
 
@@ -507,7 +507,7 @@ int odp_cos_with_l2_priority(odp_pktio_t pktio_in,
 		ODP_ERR("Invalid odp_pktio_t handle");
 		return -1;
 	}
-	l2_cos = &entry->s.cls.l2_cos_table;
+	l2_cos = &entry->cls.l2_cos_table;
 
 	LOCK(&l2_cos->lock);
 	/* Update the L2 QoS table*/
@@ -538,8 +538,8 @@ int odp_cos_with_l3_qos(odp_pktio_t pktio_in,
 		return -1;
 	}
 
-	entry->s.cls.l3_precedence = l3_preference;
-	l3_cos = &entry->s.cls.l3_cos_table;
+	entry->cls.l3_precedence = l3_preference;
+	l3_cos = &entry->cls.l3_cos_table;
 
 	LOCK(&l3_cos->lock);
 	/* Update the L3 QoS table*/
@@ -881,7 +881,7 @@ int pktio_classifier_init(pktio_entry_t *entry)
 	/* classifier lock should be acquired by the calling function */
 	if (entry == NULL)
 		return -1;
-	cls = &entry->s.cls;
+	cls = &entry->cls;
 	cls->error_cos = NULL;
 	cls->default_cos = NULL;
 	cls->headroom = 0;
@@ -915,7 +915,7 @@ static inline cos_t *cls_select_cos(pktio_entry_t *entry,
 	uint32_t i;
 	classifier_t *cls;
 
-	cls = &entry->s.cls;
+	cls = &entry->cls;
 	default_cos = cls->default_cos;
 
 	/* Return error cos for error packet */
@@ -1115,7 +1115,7 @@ static
 cos_t *match_qos_cos(pktio_entry_t *entry, const uint8_t *pkt_addr,
 		     odp_packet_hdr_t *hdr)
 {
-	classifier_t *cls = &entry->s.cls;
+	classifier_t *cls = &entry->cls;
 	pmr_l2_cos_t *l2_cos;
 	pmr_l3_cos_t *l3_cos;
 	cos_t *cos;

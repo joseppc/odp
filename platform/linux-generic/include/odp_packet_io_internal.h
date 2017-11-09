@@ -32,8 +32,10 @@ extern "C" {
 #include <net/if.h>
 
 #define PKTIO_MAX_QUEUES 64
+
 /* Forward declaration */
-typedef union pktio_entry_u pktio_entry_t;
+typedef struct pktio_entry pktio_entry_t;
+
 #include <odp_pktio_ops_subsystem.h>
 
 #define PKTIO_NAME_LEN 256
@@ -97,11 +99,8 @@ struct pktio_entry {
 		odp_queue_t        queue;
 		odp_pktout_queue_t pktout;
 	} out_queue[PKTIO_MAX_QUEUES];
-};
 
-union pktio_entry_u {
-	struct pktio_entry s;
-	uint8_t pad[ROUNDUP_CACHE_LINE(sizeof(struct pktio_entry))];
+	uint8_t pad[0] __attribute__((aligned(ODP_CACHE_LINE_SIZE)));
 };
 
 typedef struct {
@@ -132,12 +131,12 @@ static inline pktio_entry_t *get_pktio_entry(odp_pktio_t pktio)
 
 static inline int pktio_cls_enabled(pktio_entry_t *entry)
 {
-	return entry->s.cls_enabled;
+	return entry->cls_enabled;
 }
 
 static inline void pktio_cls_enabled_set(pktio_entry_t *entry, int ena)
 {
-	entry->s.cls_enabled = ena;
+	entry->cls_enabled = ena;
 }
 
 int pktin_poll_one(int pktio_index,
