@@ -85,13 +85,6 @@ typedef ODP_MODULE_CLASS(pktio_ops) {
 	odp_api_proto(pktio_ops, print) print;
 } pktio_ops_module_t;
 
-/* Maximum size of pktio specific ops data.*/
-#define ODP_PKTIO_ODPS_DATA_MAX_SIZE 80000
-
-/* Extract pktio ops data from pktio entry structure */
-#define odp_ops_data(_p, _mod) \
-	((pktio_ops_ ## _mod ## _data_t *)(uintptr_t)_p->ops_data)
-
 #ifdef __cplusplus
 }
 #endif

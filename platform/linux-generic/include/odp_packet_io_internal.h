@@ -33,6 +33,9 @@ extern "C" {
 
 #define PKTIO_MAX_QUEUES 64
 
+/* Maximum size of pktio specific ops data.*/
+#define ODP_PKTIO_ODPS_DATA_MIN_SIZE 80000
+
 /* Forward declaration */
 typedef struct pktio_entry pktio_entry_t;
 
@@ -45,8 +48,6 @@ typedef struct pktio_entry pktio_entry_t;
 
 struct pktio_entry {
 	const pktio_ops_module_t *ops;	/**< Implementation specific methods */
-	uint8_t ops_data[ODP_PKTIO_ODPS_DATA_MAX_SIZE]; /**< IO operation
-							specific data */
 	/* These two locks together lock the whole pktio device */
 	odp_ticketlock_t rxl;		/**< RX ticketlock */
 	odp_ticketlock_t txl;		/**< TX ticketlock */
@@ -100,8 +101,19 @@ struct pktio_entry {
 		odp_pktout_queue_t pktout;
 	} out_queue[PKTIO_MAX_QUEUES];
 
+	uint8_t ops_data[ODP_PKTIO_ODPS_DATA_MIN_SIZE]; /**< IO operation
+							specific data */
+
 	uint8_t pad[0] __attribute__((aligned(ODP_CACHE_LINE_SIZE)));
 };
+
+/* Maximum size of pktio specific ops data.*/
+#define ODP_PKTIO_ODPS_DATA_MAX_SIZE \
+	(offsetof(pktio_entry, pad) - offsetof(pktio_entry, ops_data))
+
+/* Extract pktio ops data from pktio entry structure */
+#define odp_ops_data(_p, _mod) \
+	((pktio_ops_ ## _mod ## _data_t *)(uintptr_t)(_p)->ops_data)
 
 typedef struct {
 	odp_spinlock_t lock;
