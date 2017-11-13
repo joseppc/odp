@@ -41,8 +41,100 @@
 #include <odp_internal.h>
 #include <odp/drv/shm.h>
 #include <odp_debug_internal.h>
+#include <odp_align_internal.h>
 
 #include <drv_pci_internal.h>
+
+#define MAX_PCI_DEVICES 16
+
+typedef union {
+	pci_dev_t d;
+	uint8_t pad[ROUNDUP_CACHE_LINE(sizeof(pci_dev_t))];
+} pci_dev_item_t;
+
+typedef struct pci_admin_data {
+	pci_dev_t *avail;
+	pci_dev_t *used;
+	odpdrv_shm_t shm;
+} pci_admin_data_t;
+
+typedef union {
+	struct pci_admin_data d;
+	uint8_t pad[ROUNDUP_CACHE_LINE(sizeof(struct pci_admin_data))];
+} pci_admin_data_u;
+
+static pci_admin_data_u *admin_data;
+
+static int alloc_admin_data(void)
+{
+	uint64_t size;
+	pci_dev_item_t *item;
+	odpdrv_shm_t shm;
+
+	size = sizeof(pci_admin_data_u) +
+		sizeof(pci_dev_item_t) * MAX_PCI_DEVICES;
+
+	shm = odpdrv_shm_reserve(PCI_ENUMED_DEV, size, 0, ODPDRV_SHM_SINGLE_VA);
+	if (shm == ODPDRV_SHM_INVALID)
+		return -1;
+
+	admin_data = odpdrv_shm_addr(shm);
+	if (!admin_data)
+		return -1;
+
+	item = (pci_dev_item_t *)((uint8_t *)admin_data +
+				  sizeof(pci_admin_data_u));
+	admin_data->d.avail = (pci_dev_t *)item;
+	admin_data->d.used = NULL;
+	admin_data->d.shm = shm;
+
+	for (int i = 0; i < MAX_PCI_DEVICES - 1; ++i)
+		item[i].d.next = (pci_dev_t *)&item[i + 1];
+
+	item[MAX_PCI_DEVICES - 1].d.next = NULL;
+
+	return 0;
+}
+
+static pci_dev_t *alloc_dev(void)
+{
+	pci_dev_t *dev;
+
+	dev = admin_data->d.avail;
+	if (admin_data->d.avail == NULL)
+		return NULL;
+
+	admin_data->d.avail = dev->next;
+
+	return dev;
+}
+
+static void free_dev(pci_dev_t *dev)
+{
+	if (dev == NULL)
+		return;
+
+	if (admin_data->d.used == NULL)
+		goto do_exit;
+
+	if (dev == admin_data->d.used) {
+		admin_data->d.used = dev->next;
+	} else {
+		pci_dev_t *prev = admin_data->d.used;
+		pci_dev_t *curr = prev->next;
+
+		while (curr != NULL && curr != dev) {
+			curr = curr->next;
+			prev = prev->next;
+		}
+		if (curr == dev)
+			prev->next = curr->next;
+	}
+
+do_exit:
+	dev->next = admin_data->d.avail;
+	admin_data->d.avail = dev;
+}
 
 /*
  * PCI probing:
@@ -283,7 +375,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	pci_dev_t *dev;
 	pci_dev_t *dev2;
 
-	dev = malloc(sizeof(*dev));
+	dev = alloc_dev();
 	if (dev == NULL)
 		return -1;
 
@@ -296,7 +388,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	/* get vendor id */
 	snprintf(filename, sizeof(filename), "%s/vendor", dirname);
 	if (pci_parse_sysfs_value(filename, &tmp) < 0) {
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 	dev->id.vendor_id = (uint16_t)tmp;
@@ -304,7 +396,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	/* get device id */
 	snprintf(filename, sizeof(filename), "%s/device", dirname);
 	if (pci_parse_sysfs_value(filename, &tmp) < 0) {
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 	dev->id.device_id = (uint16_t)tmp;
@@ -313,7 +405,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	snprintf(filename, sizeof(filename), "%s/subsystem_vendor",
 		 dirname);
 	if (pci_parse_sysfs_value(filename, &tmp) < 0) {
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 	dev->id.subsystem_vendor_id = (uint16_t)tmp;
@@ -322,7 +414,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	snprintf(filename, sizeof(filename), "%s/subsystem_device",
 		 dirname);
 	if (pci_parse_sysfs_value(filename, &tmp) < 0) {
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 	dev->id.subsystem_device_id = (uint16_t)tmp;
@@ -331,7 +423,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	snprintf(filename, sizeof(filename), "%s/class",
 		 dirname);
 	if (pci_parse_sysfs_value(filename, &tmp) < 0) {
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 	/* the least 24 bits are valid: class, subclass, program interface */
@@ -355,7 +447,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	snprintf(filename, sizeof(filename), "%s/resource", dirname);
 	if (pci_parse_sysfs_resource(filename, dev) < 0) {
 		ODP_ERR("cannot parse resource\n");
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 
@@ -364,7 +456,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 	ret = pci_get_kernel_driver_by_path(filename, driver);
 	if (ret < 0) {
 		ODP_ERR("Fail to get kernel driver\n");
-		free(dev);
+		free_dev(dev);
 		return -1;
 	}
 	if (!ret) {
@@ -404,7 +496,7 @@ static int pci_scan_one(const char *dirname, uint16_t domain, uint8_t bus,
 			dev2->kdrv = dev->kdrv;
 			dev2->max_vfs = dev->max_vfs;
 			memmove(dev2->bar, dev->bar, sizeof(dev->bar));
-			free(dev);
+			free_dev(dev);
 		}
 		return 0;
 	}
@@ -422,15 +514,7 @@ static int pci_scan(void)
 	DIR *dir;
 	char dirname[PATH_MAX];
 	uint16_t domain;
-	uint16_t devcount = 0;
 	uint8_t bus, devid, function;
-	pci_dev_t *dev;
-	pci_dev_t *dev2;
-	pci_dev_t *devlist = NULL;	/* temporary malloc'd list head */
-	pci_dev_t *pci_enumerated_dev;  /* final list head */
-	int size;
-	int index;
-	odpdrv_shm_t shm;
 
 	dir = opendir(PCI_SYSFS_DEVICES_ROOT);
 
@@ -449,61 +533,12 @@ static int pci_scan(void)
 
 		snprintf(dirname, sizeof(dirname), "%s/%s",
 			 PCI_SYSFS_DEVICES_ROOT, e->d_name);
-		if (pci_scan_one(dirname, domain, bus, devid, function,
-				 &devlist) < 0)
-			goto error;
-		devcount++;
+		pci_scan_one(dirname, domain, bus, devid, function,
+			     &(admin_data->d.used));
 	}
 	closedir(dir);
-
-	/*
-	 * At this point devlist is the malloc'd ordered PCI device list:
-	 * We can now allocate the final list, as we now know the needed
-	 * size, and copy the scanned devices in it, as none of them are
-	 * referenced by pointers at this stage.
-	 * The allocated memory is allocated as shared and SINGLE_VA'd so
-	 * that any odp thread (i.e. pthread or process) can refer pci
-	 * dev as pointers
-	 */
-	size = sizeof(pci_dev_t) * devcount;
-	shm = odpdrv_shm_reserve(PCI_ENUMED_DEV, size, 0, ODPDRV_SHM_SINGLE_VA);
-	if (shm == ODPDRV_SHM_INVALID)
-		goto error;
-
-	pci_enumerated_dev = odpdrv_shm_addr(shm);
-
-	for (index = 0, dev = devlist; dev != NULL; dev = dev->next, index++) {
-		memcpy(&pci_enumerated_dev[index],
-		       dev,
-		       sizeof(pci_dev_t));
-		pci_enumerated_dev[index].next = &pci_enumerated_dev[index + 1];
-	}
-	pci_enumerated_dev[index - 1].next = NULL;
-
-	if (index != devcount)
-		ODP_ERR("pci enumeration error (bug!)\n");
-
-	/* free the malloc'd list: */
-	dev = devlist;
-	while (dev != NULL) {
-		dev2 = dev->next;
-		free(dev);
-		dev = dev2;
-	}
 
 	return 0;
-
-error:
-	closedir(dir);
-
-	/* free the malloc'd list: */
-	dev = devlist;
-	while (dev != NULL) {
-		dev2 = dev->next;
-		free(dev);
-		dev = dev2;
-	}
-	return -1;
 }
 
 /*
@@ -511,20 +546,13 @@ error:
  */
 static int pci_dump_scanned(void)
 {
-	odpdrv_shm_t shm;
 	pci_dev_t *dev;
-	pci_dev_t *devlist;
 
-	shm = odpdrv_shm_lookup_by_name(PCI_ENUMED_DEV);
-	if (shm == ODPDRV_SHM_INVALID)
-		return -1;
-
-	devlist = odpdrv_shm_addr(shm);
-	if (!devlist)
+	if (admin_data == NULL)
 		return -1;
 
 	ODP_DBG("list of scanned PCI devices:\n");
-	for (dev = devlist; dev != NULL; dev = dev->next)
+	for (dev = admin_data->d.used; dev != NULL; dev = dev->next)
 		ODP_DBG("%04" PRIx16 ":"
 			"%02" PRIx8 ":"
 			"%02" PRIx8 ":"
@@ -545,6 +573,9 @@ static int pci_dump_scanned(void)
 
 int _odp_pci_init_global(void)
 {
+	if (alloc_admin_data())
+		return -1;
+
 	/* scan for PCI devices: */
 	pci_scan();
 
