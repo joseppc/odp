@@ -46,6 +46,9 @@ struct virtnet_ctl;
 #define VIRTIO_PCI_LEGACY_DEVICE_ID_NET 0x1000
 #define VIRTIO_PCI_MODERN_DEVICE_ID_NET 0x1041
 
+/* The alignment to use between consumer and producer parts of vring. */
+#define VIRTIO_PCI_VRING_ALIGN 4096
+
 /* VirtIO ABI version, this must match exactly. */
 #define VIRTIO_PCI_ABI_VERSION 0
 
@@ -240,14 +243,13 @@ struct virtio_pci_ops {
 };
 
 struct virtio_net_config;
+struct virtqueue;
 
-/* it's ugly, and it will be fixed */
-#define driver_data_t virtio_hw
-
-struct driver_data_t {
+struct virtio_hw {
 	struct virtnet_ctl *cvq;
 	pci_ioport_t io;
 	uint64_t    guest_features;
+	uint32_t    max_queue_pairs;
 	uint32_t    max_tx_queues;
 	uint32_t    max_rx_queues;
 	uint16_t    vtnet_hdr_size;
@@ -264,7 +266,10 @@ struct driver_data_t {
 	struct virtio_net_config *dev_cfg;
 	const struct virtio_pci_ops *vtpci_ops;
 	void	    *virtio_user_dev;
+	struct virtqueue **vqs;
 };
+
+#define VTPCI_OPS(hw) ((hw)->vtpci_ops)
 
 /*
  * This structure is just a reference to read
