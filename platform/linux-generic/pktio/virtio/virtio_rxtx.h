@@ -35,6 +35,7 @@
 #define _VIRTIO_RXTX_H_
 
 #include <stdint.h>
+#include <pktio/physmem/physmem.h>
 
 #define RTE_PMD_VIRTIO_RX_MAX_BURST 64
 
@@ -61,13 +62,13 @@ struct virtnet_rx {
 	/* Statistics */
 	struct virtnet_stats stats;
 
-	const struct rte_memzone *mz; /**< mem zone to populate RX ring. */
+	const struct physmem_block *mz; /**< mem zone to populate RX ring. */
 };
 
 struct virtnet_tx {
 	struct virtqueue *vq;
 	/**< memzone to populate hdr. */
-	const struct rte_memzone *virtio_net_hdr_mz;
+	const struct physmem_block *virtio_net_hdr_mz;
 	uint64_t virtio_net_hdr_mem;   /**< hdr for each xmit packet */
 
 	uint16_t    queue_id;            /**< DPDK queue index. */
@@ -76,16 +77,16 @@ struct virtnet_tx {
 	/* Statistics */
 	struct virtnet_stats stats;
 
-	const struct rte_memzone *mz;    /**< mem zone to populate TX ring. */
+	const struct physmem_block *mz;    /**< mem zone to populate TX ring. */
 };
 
 struct virtnet_ctl {
 	struct virtqueue *vq;
 	/**< memzone to populate hdr. */
-	const struct rte_memzone *virtio_net_hdr_mz;
+	const struct physmem_block *virtio_net_hdr_mz;
 	uint64_t virtio_net_hdr_mem;  /**< hdr for each xmit packet */
 	uint16_t port_id;               /**< Device port identifier. */
-	const struct rte_memzone *mz;   /**< mem zone to populate CTL ring. */
+	const struct physmem_block *mz;   /**< mem zone to populate CTL ring. */
 };
 
 int virtio_rxq_vec_setup(struct virtnet_rx *rxvq);

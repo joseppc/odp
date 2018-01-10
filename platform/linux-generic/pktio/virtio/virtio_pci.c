@@ -54,6 +54,8 @@
 #include "virtqueue.h"
 #include "virtio_pci.h"
 
+#define RTE_DIM(a)      (sizeof (a) / sizeof ((a)[0]))
+
 /* Features desired/implemented by this driver. */
 #define VIRTIO_NET_DRIVER_FEATURES              \
 	(1u << VIRTIO_NET_F_MAC           |     \
@@ -537,11 +539,8 @@ static uint16_t virtio_get_num_queues(struct virtio_hw *hw)
 
 static int virtio_init_queue(struct virtio_hw *hw, int vtpci_queue_idx)
 {
-	char vq_hdr_name[VIRTQUEUE_MAX_NAME_SZ];
 	struct physmem_block *block;
-#ifdef HAS_RTE_MEMZONE
-	const struct rte_memzone *mz = NULL, *hdr_mz = NULL;
-#endif
+	struct physmem_block *mz = NULL, *hdr_mz = NULL;
 	unsigned int vq_size, size;
 	struct virtnet_rx *rxvq = NULL;
 	struct virtnet_tx *txvq = NULL;
@@ -550,7 +549,7 @@ static int virtio_init_queue(struct virtio_hw *hw, int vtpci_queue_idx)
 	size_t sz_hdr_mz = 0;
 	void *sw_ring = NULL;
 	int queue_type = virtio_get_queue_type(hw, vtpci_queue_idx);
-	int ret = 0;
+	int ret = -EINVAL;
 
 	ODP_PRINT("setting up queue: %u\n", vtpci_queue_idx);
 
@@ -610,6 +609,7 @@ static int virtio_init_queue(struct virtio_hw *hw, int vtpci_queue_idx)
 	block = physmem_block_alloc(size);
 	if (block == NULL) {
 		ODP_ERR("Could not allocate block\n");
+		ret = -ENOMEM;
 		goto exit_failure;
 	}
 
@@ -624,36 +624,12 @@ static int virtio_init_queue(struct virtio_hw *hw, int vtpci_queue_idx)
 
 	virtio_init_vring(vq);
 
-	(void)sw_ring;
-	(void)sz_hdr_mz;
-	(void)vq;
-	(void)cvq;
-	(void)txvq;
-	(void)rxvq;
-	(void)size;
-	(void)vq_hdr_name;
-
-	return ret;
-
-exit_failure:
-	physmem_block_free(block);
-
-	return -1;
-
-#if 0
 	if (sz_hdr_mz) {
-		snprintf(vq_hdr_name, sizeof(vq_hdr_name), "port%d_vq%d_hdr",
-			 dev->data->port_id, vtpci_queue_idx);
-		hdr_mz = rte_memzone_reserve_aligned(vq_hdr_name, sz_hdr_mz,
-						     SOCKET_ID_ANY, 0,
-						     RTE_CACHE_LINE_SIZE);
+		hdr_mz = physmem_block_alloc(sz_hdr_mz);
 		if (hdr_mz == NULL) {
-			if (rte_errno == EEXIST)
-				hdr_mz = rte_memzone_lookup(vq_hdr_name);
-			if (hdr_mz == NULL) {
-				ret = -ENOMEM;
-				goto fail_q_alloc;
-			}
+			ODP_ERR("Could not allocate block\n");
+			ret = -ENOMEM;
+			goto exit_failure;
 		}
 	}
 
@@ -661,33 +637,32 @@ exit_failure:
 		size_t sz_sw = (RTE_PMD_VIRTIO_RX_MAX_BURST + vq_size) *
 			       sizeof(vq->sw_ring[0]);
 
-		sw_ring = rte_zmalloc_socket("sw_ring", sz_sw,
-				RTE_CACHE_LINE_SIZE, SOCKET_ID_ANY);
+		sw_ring = malloc(sz_sw);
 		if (!sw_ring) {
-			PMD_INIT_LOG(ERR, "can not allocate RX soft ring");
+			ODP_ERR("Can not allocate RX soft ring\n");
 			ret = -ENOMEM;
-			goto fail_q_alloc;
+			goto exit_failure;
 		}
 
 		vq->sw_ring = sw_ring;
 		rxvq = &vq->rxq;
 		rxvq->vq = vq;
-		rxvq->port_id = dev->data->port_id;
+		//rxvq->port_id = dev->data->port_id;
 		rxvq->mz = mz;
 	} else if (queue_type == VTNET_TQ) {
 		txvq = &vq->txq;
 		txvq->vq = vq;
-		txvq->port_id = dev->data->port_id;
+		//txvq->port_id = dev->data->port_id;
 		txvq->mz = mz;
 		txvq->virtio_net_hdr_mz = hdr_mz;
-		txvq->virtio_net_hdr_mem = hdr_mz->iova;
+		txvq->virtio_net_hdr_mem = hdr_mz->pa;
 	} else if (queue_type == VTNET_CQ) {
 		cvq = &vq->cq;
 		cvq->vq = vq;
 		cvq->mz = mz;
 		cvq->virtio_net_hdr_mz = hdr_mz;
-		cvq->virtio_net_hdr_mem = hdr_mz->iova;
-		memset(cvq->virtio_net_hdr_mz->addr, 0, PAGE_SIZE);
+		cvq->virtio_net_hdr_mem = hdr_mz->pa;
+		memset(cvq->virtio_net_hdr_mz->va, 0, ODP_PAGE_SIZE);
 
 		hw->cvq = cvq;
 	}
@@ -699,19 +674,16 @@ exit_failure:
 	if (!hw->virtio_user_dev)
 		vq->offset = offsetof(struct rte_mbuf, buf_iova);
 	else {
-		vq->vq_ring_mem = (uintptr_t)mz->addr;
-		vq->offset = offsetof(struct rte_mbuf, buf_addr);
-		if (queue_type == VTNET_TQ)
-			txvq->virtio_net_hdr_mem = (uintptr_t)hdr_mz->addr;
-		else if (queue_type == VTNET_CQ)
-			cvq->virtio_net_hdr_mem = (uintptr_t)hdr_mz->addr;
+		ODP_ERR("virtio_user_dev not implemented\n");
+		ret = -EINVAL;
+		goto exit_failure;
 	}
 
 	if (queue_type == VTNET_TQ) {
 		struct virtio_tx_region *txr;
 		unsigned int i;
 
-		txr = hdr_mz->addr;
+		txr = hdr_mz->va;
 		memset(txr, 0, vq_size * sizeof(*txr));
 		for (i = 0; i < vq_size; i++) {
 			struct vring_desc *start_dp = txr[i].tx_indir;
@@ -729,20 +701,18 @@ exit_failure:
 	}
 
 	if (VTPCI_OPS(hw)->setup_queue(hw, vq) < 0) {
-		PMD_INIT_LOG(ERR, "setup_queue failed");
+		ODP_ERR("setup_queue failed\n");
 		return -EINVAL;
 	}
 
 	return 0;
 
-fail_q_alloc:
-	rte_free(sw_ring);
-	rte_memzone_free(hdr_mz);
-	rte_memzone_free(mz);
-	rte_free(vq);
+exit_failure:
+	physmem_block_free(block);
+	physmem_block_free(hdr_mz);
+	free(sw_ring);
 
 	return ret;
-#endif
 }
 
 static void virtio_free_queues(struct virtio_hw *hw ODP_UNUSED)
@@ -837,6 +807,8 @@ static int virtio_init_ethdev(struct virtio_hw *hw)
 		ops->reset(hw);
 		return ret;
 	}
+
+	vtpci_reinit_complete(hw);
 
 	return ret;
 }

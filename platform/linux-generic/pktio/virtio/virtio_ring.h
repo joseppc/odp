@@ -40,6 +40,7 @@
 struct rte_mbuf {
 	char *foo;
 	int bar;
+	void *buf_iova;
 };
 
 /* This marks a buffer as continuing via the next field. */
