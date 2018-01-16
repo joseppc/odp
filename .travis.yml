@@ -208,7 +208,7 @@ install:
 
 script:
         - if [ -z "$CROSS_ARCH" ] ; then
-                EXTRA_CONF="--with-dpdk-path=`pwd`/dpdk/${TARGET} --with-netmap-path=`pwd`/netmap" ;
+                EXTRA_CONF="--with-netmap-path=`pwd`/netmap" ;
           fi
         - ./bootstrap
         - ./configure --prefix=$HOME/odp-install
@@ -246,7 +246,6 @@ jobs:
                           - ./bootstrap
                           - ./configure --prefix=$HOME/odp-install
                             --enable-user-guides
-                            --with-dpdk-path=`pwd`/dpdk/${TARGET}
                             --with-netmap-path=`pwd`/netmap CFLAGS="-O0
                               -coverage"
                               CXXFLAGS="-O0 -coverage" LDFLAGS="--coverage"
