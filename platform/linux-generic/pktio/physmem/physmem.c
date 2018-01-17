@@ -20,6 +20,7 @@
 #include <limits.h>
 
 #include <config.h>
+#include <odp_internal.h>
 #include <odp_align_internal.h>
 #include <odp_debug_internal.h>
 #include <_ishmphy_internal.h>
@@ -31,12 +32,11 @@
 #define lock_list()
 #define unlock_list()
 
-#define HUGEPAGES_PATH "/dev/hugepages/"
-
 #define MAX_HUGEPAGES 128
 
 /* make hugepage_info 128 bytes long */
 #define FILENAME_PATH_MAX 96
+#define PHYSMEM_FILES_FMT "odp-%d-phym%03d"
 
 struct hugepage_info {
 	struct physmem_block *block; /* the block this hugepage belongs to */
@@ -68,9 +68,17 @@ static int alloc_hugepage(struct hugepage_info *hp)
 
 	if (hp == NULL)
 		return -1;
+	if (odp_global_data.hugepage_info.default_huge_page_dir == NULL) {
+		ODP_ERR("Could not find the huge pages mount directory\n");
+		return -1;
+	}
 
 	len = snprintf(hp->filename, sizeof(hp->filename),
-		       HUGEPAGES_PATH "odp-%d", file_id);
+		       "%s/%s/" PHYSMEM_FILES_FMT,
+		       odp_global_data.hugepage_info.default_huge_page_dir,
+		       odp_global_data.uid,
+		       odp_global_data.main_pid,
+		       file_id);
 	if (len >= FILENAME_PATH_MAX) {
 		ODP_ERR("Filename too large (%d)\n", len);
 		return -1;
