@@ -33,10 +33,12 @@
 #define unlock_list()
 
 #define MAX_HUGEPAGES 128
+static long int max_hugepages = 0;
 
 /* make hugepage_info 128 bytes long */
 #define FILENAME_PATH_MAX 96
 #define PHYSMEM_FILES_FMT "odp-%d-phym%03d"
+#define PHYSMEM_ENV "ODP_PHYSMEM_NUM_PAGES"
 
 struct hugepage_info {
 	struct physmem_block *block; /* the block this hugepage belongs to */
@@ -132,14 +134,14 @@ static int init_hugepages(void)
 {
 	memset(pages, 0, sizeof(pages));
 
-	for (int i = 0; i < MAX_HUGEPAGES; ++i) {
+	for (int i = 0; i < max_hugepages; ++i) {
 		if (alloc_hugepage(&pages[i]) != 0) {
 			ODP_ERR("Could not allocate hugepages\n");
 			return -1;
 		}
 	}
 
-	qsort(pages, MAX_HUGEPAGES, sizeof(pages[0]), comp_hp);
+	qsort(pages, max_hugepages, sizeof(pages[0]), comp_hp);
 
 	return 0;
 }
@@ -234,7 +236,7 @@ static int sort_in_blocks(struct hugepage_info *hp_array, int count)
 	}
 
 	/* insert rest of blocks into the empty list */
-	for (block_id = block_data.count; block_id < MAX_HUGEPAGES; ++block_id){
+	for (block_id = block_data.count; block_id < max_hugepages; ++block_id){
 		block = &block_data.block[block_id];
 		block->id = block_id;
 		block->type = BLOCK_EMPTY;
@@ -397,7 +399,7 @@ void physmem_block_free(struct physmem_block *block)
 
 	/* join with right block if available */
 	uint32_t right_idx = block->first + block->count;
-	if (right_idx < MAX_HUGEPAGES) {
+	if (right_idx < max_hugepages) {
 		struct hugepage_info *last_hp;
 		struct hugepage_info *right_hp;
 		struct physmem_block *right_block;
@@ -609,6 +611,7 @@ int physmem_block_unmap(struct physmem_block *block)
 static void init_blocks(void)
 {
 	memset(&block_data, 0, sizeof(block_data));
+	block_data.hp_size = 1;
 
 	LIST_INIT(&block_data.avail);
 	LIST_INIT(&block_data.used);
@@ -617,14 +620,38 @@ static void init_blocks(void)
 
 int physmem_block_init_global(void)
 {
+	const char *env_num_pages = NULL;
+
 	init_blocks();
+
+	env_num_pages = getenv(PHYSMEM_ENV);
+	if (env_num_pages != NULL && *env_num_pages != '\0') {
+		char *ptr;
+		long int num_pages = strtol(env_num_pages, &ptr, 0);
+		if (*ptr != '\0') {
+			ODP_ERR("Environment variable " PHYSMEM_ENV
+				" contains wrong value: %s\n",
+				env_num_pages);
+			return -1;
+		}
+		ODP_DBG("Setting physmem pages according to environment; %d\n",
+			num_pages);
+		max_hugepages = num_pages;
+	}
+
+	/* FIXME: 0 or -1 should mean as many hugepages as possible */
+	if (max_hugepages <= 0) {
+		ODP_DBG("physmem: DISABLED: %d\n", max_hugepages);
+		max_hugepages = 0;
+		return 0;
+	}
 
 	if (init_hugepages()) {
 		physmem_block_term_global();
 		return -1;
 	}
 
-	if (sort_in_blocks(pages, MAX_HUGEPAGES) != 0)
+	if (sort_in_blocks(pages, max_hugepages) != 0)
 		return -1;
 
 	return 0;
@@ -632,7 +659,7 @@ int physmem_block_init_global(void)
 
 int physmem_block_term_global(void)
 {
-	for (int i = 0; i < MAX_HUGEPAGES; ++i) {
+	for (int i = 0; i < max_hugepages; ++i) {
 		if (pages[i].fd == 0)
 			continue;
 		close(pages[i].fd);
