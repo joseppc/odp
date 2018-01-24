@@ -51,7 +51,7 @@
 typedef union {
 	pci_dev_t d;
 	uint8_t pad[ROUNDUP_CACHE_LINE(sizeof(pci_dev_t))];
-} pci_dev_item_t;
+} pci_dev_item_u;
 
 typedef struct pci_admin_data {
 	pci_dev_t *avail;
@@ -61,36 +61,48 @@ typedef struct pci_admin_data {
 
 typedef union {
 	struct pci_admin_data d;
-	uint8_t pad[ROUNDUP_CACHE_LINE(sizeof(struct pci_admin_data))];
+	uint8_t pad[ROUNDUP_ALIGN(sizeof(struct pci_admin_data),
+				  sizeof(pci_dev_item_u))];
 } pci_admin_data_u;
 
-static pci_admin_data_u *admin_data;
+struct shared_memory {
+	pci_admin_data_u ad;
+	pci_dev_item_u devices[];
+};
+
+static pci_admin_data_t *admin_data;
 
 static int alloc_admin_data(void)
 {
+	struct shared_memory *sa;
 	uint64_t size;
-	pci_dev_item_t *item;
+	pci_dev_item_u *item;
 	odp_shm_t shm;
+	int i;
 
-	size = sizeof(pci_admin_data_u) +
-		sizeof(pci_dev_item_t) * MAX_PCI_DEVICES;
+	size = sizeof(struct shared_memory) +
+		sizeof(pci_dev_item_u) * MAX_PCI_DEVICES;
 
 	shm = odp_shm_reserve(PCI_ENUMED_DEV, size, 0, ODP_SHM_SINGLE_VA);
 	if (shm == ODP_SHM_INVALID)
 		return -1;
 
-	admin_data = odp_shm_addr(shm);
-	if (!admin_data)
+	sa = odp_shm_addr(shm);
+	if (!sa) {
+		odp_shm_free(shm);
 		return -1;
+	}
 
-	item = (pci_dev_item_t *)((uint8_t *)admin_data +
-				  sizeof(pci_admin_data_u));
-	admin_data->d.avail = (pci_dev_t *)item;
-	admin_data->d.used = NULL;
-	admin_data->d.shm = shm;
+	admin_data = &sa->ad.d;
+	ODP_ASSERT((void *)admin_data == (void *)sa);
 
-	for (int i = 0; i < MAX_PCI_DEVICES - 1; ++i)
-		item[i].d.next = (pci_dev_t *)&item[i + 1];
+	admin_data->avail = &sa->devices[0].d;
+	admin_data->used = NULL;
+	admin_data->shm = shm;
+	item = &sa->devices[0];
+
+	for (i = 0; i < MAX_PCI_DEVICES - 1; ++i)
+		item[i].d.next = &item[i + 1].d;
 
 	item[MAX_PCI_DEVICES - 1].d.next = NULL;
 
@@ -101,11 +113,11 @@ static pci_dev_t *alloc_dev(void)
 {
 	pci_dev_t *dev;
 
-	dev = admin_data->d.avail;
-	if (admin_data->d.avail == NULL)
+	dev = admin_data->avail;
+	if (admin_data->avail == NULL)
 		return NULL;
 
-	admin_data->d.avail = dev->next;
+	admin_data->avail = dev->next;
 	dev->next = NULL;
 
 	return dev;
@@ -116,13 +128,13 @@ static void free_dev(pci_dev_t *dev)
 	if (dev == NULL)
 		return;
 
-	if (admin_data->d.used == NULL)
+	if (admin_data->used == NULL)
 		goto do_exit;
 
-	if (dev == admin_data->d.used) {
-		admin_data->d.used = dev->next;
+	if (dev == admin_data->used) {
+		admin_data->used = dev->next;
 	} else {
-		pci_dev_t *prev = admin_data->d.used;
+		pci_dev_t *prev = admin_data->used;
 		pci_dev_t *curr = prev->next;
 
 		while (curr != NULL && curr != dev) {
@@ -134,8 +146,8 @@ static void free_dev(pci_dev_t *dev)
 	}
 
 do_exit:
-	dev->next = admin_data->d.avail;
-	admin_data->d.avail = dev;
+	dev->next = admin_data->avail;
+	admin_data->avail = dev;
 }
 
 /*
@@ -565,9 +577,9 @@ static int pci_scan(void)
 			continue;
 
 		snprintf(dirname, sizeof(dirname), "%s/%s",
-			 PCI_SYSFS_DEVICES_ROOT, e->d_name);
+			 pci_get_sysfs_path(), e->d_name);
 		pci_scan_one(dirname, domain, bus, devid, function,
-			     &(admin_data->d.used));
+			     &admin_data->used);
 	}
 	closedir(dir);
 
@@ -588,7 +600,7 @@ static int pci_dump_scanned(void)
 		return -1;
 
 	ODP_DBG("list of scanned PCI devices:\n");
-	for (dev = admin_data->d.used; dev != NULL; dev = dev->next) {
+	for (dev = admin_data->used; dev != NULL; dev = dev->next) {
 		switch (dev->kdrv) {
 			case PCI_KDRV_VFIO:
 				driver = "vfio";
@@ -647,7 +659,7 @@ int _odp_pci_term_global(void)
 {
 	/* free the enumarated PCI device list (if any) */
 	if (admin_data)
-		odp_shm_free(admin_data->d.shm);
+		odp_shm_free(admin_data->shm);
 
 	return 0;
 }
@@ -743,7 +755,7 @@ pci_dev_t *pci_open_device(const char *dev)
 	char dirname[PATH_MAX];
 	pci_dev_t *pci_dev;
 
-	if (admin_data == NULL || admin_data->d.avail == NULL)
+	if (admin_data == NULL || admin_data->avail == NULL)
 		return NULL;
 
 	if (parse_pci_addr_format(dev, &domain, &bus, &device, &function)) {
@@ -754,7 +766,7 @@ pci_dev_t *pci_open_device(const char *dev)
 	snprintf(dirname, sizeof(dirname), "%s/%s",
 		 pci_get_sysfs_path(), dev);
 	pci_dev = pci_scan_one(dirname, domain, bus, device, function,
-			       &admin_data->d.used);
+			       &admin_data->used);
 	if (pci_dev == NULL)
 		return NULL;
 
