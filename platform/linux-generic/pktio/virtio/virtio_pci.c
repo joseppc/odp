@@ -137,11 +137,13 @@ static inline void io_write32(uint32_t val, uint32_t *addr)
 	*(volatile uint32_t *)addr = val;
 }
 
+#if 0
 static inline void io_write64_twopart(uint64_t val, uint32_t *lo, uint32_t *hi)
 {
 	io_write32(val & ((1ULL << 32) - 1), lo);
 	io_write32(val >> 32,		     hi);
 }
+#endif
 
 static void modern_read_dev_config(struct virtio_hw *hw, size_t offset,
 				   void *dst, int length)
