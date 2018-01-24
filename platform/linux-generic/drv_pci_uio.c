@@ -543,14 +543,14 @@ static void pci_uio_ioport_read(pci_dev_t* dev ODP_UNUSED, pci_ioport_t *p,
 		if (len >= 4) {
 			size = 4;
 #if !defined(ARM_ARCHITECTURE)
-			*(uint32_t *)d = inl(reg);
+			*(uint32_t *)(void *)d = inl(reg);
 #else
 			*(uint32_t *)d = *(volatile uint32_t *)reg;
 #endif
 		} else if (len >= 2) {
 			size = 2;
 #if !defined(ARM_ARCHITECTURE)
-			*(uint16_t *)d = inw(reg);
+			*(uint16_t *)(void *)d = inw(reg);
 #else
 			*(uint16_t *)d = *(volatile uint16_t *)reg;
 #endif
@@ -576,14 +576,14 @@ static void pci_uio_ioport_write(pci_dev_t* dev ODP_UNUSED, pci_ioport_t *p,
 		if (len >= 4) {
 			size = 4;
 #if !defined(ARM_ARCHITECTURE)
-			outl_p(*(const uint32_t *)s, reg);
+			outl_p(*(const uint32_t *)(const void *)s, reg);
 #else
 			*(volatile uint32_t *)reg = *(const uint32_t *)s;
 #endif
 		} else if (len >= 2) {
 			size = 2;
 #if !defined(ARM_ARCHITECTURE)
-			outw_p(*(const uint16_t *)s, reg);
+			outw_p(*(const uint16_t *)(const void *)s, reg);
 #else
 			*(volatile uint16_t *)reg = *(const uint16_t *)s;
 #endif
