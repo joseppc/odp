@@ -576,6 +576,13 @@ int _odp_term_global(enum init_stage stage)
 		}
 		/* Fall through */
 
+	case PHYSMEM_INIT:
+		/* not enabled with odp-dpdk, use memzones */
+		/* Fall through */
+	case PCI_INIT:
+		/* not enabled with odp-dpdk, use dpdk drivers instead */
+		/* Fall through */
+
 	case NO_INIT:
 		;
 	}
