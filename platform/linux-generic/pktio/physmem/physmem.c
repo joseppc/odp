@@ -236,7 +236,8 @@ static int sort_in_blocks(struct hugepage_info *hp_array, int count)
 	}
 
 	/* insert rest of blocks into the empty list */
-	for (block_id = block_data.count; block_id < max_hugepages; ++block_id){
+	for (block_id = block_data.count; block_id < (uint32_t)max_hugepages;
+	     ++block_id) {
 		block = &block_data.block[block_id];
 		block->id = block_id;
 		block->type = BLOCK_EMPTY;
@@ -359,6 +360,8 @@ struct physmem_block *physmem_block_alloc(uint64_t size)
 
 void physmem_block_free(struct physmem_block *block)
 {
+	long int right_idx;
+
 	if (block == NULL)
 		return;
 
@@ -398,7 +401,7 @@ void physmem_block_free(struct physmem_block *block)
 	}
 
 	/* join with right block if available */
-	uint32_t right_idx = block->first + block->count;
+	right_idx = block->first + block->count;
 	if (right_idx < max_hugepages) {
 		struct hugepage_info *last_hp;
 		struct hugepage_info *right_hp;
