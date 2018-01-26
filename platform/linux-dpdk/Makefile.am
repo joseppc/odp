@@ -179,6 +179,7 @@ noinst_HEADERS = \
 		  ${top_srcdir}/platform/linux-generic/include/_ishm_internal.h \
 		  ${top_srcdir}/platform/linux-generic/include/_ishmphy_internal.h \
 		  ${top_srcdir}/platform/linux-generic/include/_ishmpool_internal.h \
+		  ${top_srcdir}/platform/linux-generic/include/_str_functions_internal.h \
 		  ${top_srcdir}/platform/linux-generic/include/drv_driver_internal.h\
 		  ${top_srcdir}/platform/linux-generic/include/odp_align_internal.h \
 		  ${top_srcdir}/platform/linux-generic/include/odp_atomic_internal.h \
@@ -233,6 +234,7 @@ __LIB__libodp_dpdk_la_SOURCES = \
 			   ../linux-generic/_ishmphy.c \
 			   ../linux-generic/_ishmpool.c \
 			   ../linux-generic/_modules.c \
+			   ../linux-generic/_str_functions.c \
 			   ../linux-generic/odp_atomic.c \
 			   ../linux-generic/odp_barrier.c \
 			   ../linux-generic/odp_bitmap.c \
