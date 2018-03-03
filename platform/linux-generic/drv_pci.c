@@ -109,7 +109,7 @@ static int alloc_admin_data(void)
 	return 0;
 }
 
-static pci_dev_t *alloc_dev(void)
+pci_dev_t *alloc_dev(void)
 {
 	pci_dev_t *dev;
 
@@ -123,7 +123,7 @@ static pci_dev_t *alloc_dev(void)
 	return dev;
 }
 
-static void free_dev(pci_dev_t *dev)
+void free_dev(pci_dev_t *dev)
 {
 	if (dev == NULL)
 		return;
@@ -782,6 +782,38 @@ int pci_close_device(pci_dev_t *dev)
 		dev->user_access_ops->unmap_resource(dev);
 
 	free_dev(dev);
+
+	return 0;
+}
+
+/*
+ * Match the PCI Driver and Device using the ID Table
+ */
+int
+rte_pci_match(const struct pci_id_t *id_table, const struct pci_dev_t *pci_dev)
+{
+	for ( ; id_table->vendor_id != 0; id_table++) {
+		/* check if device's identifiers match the driver's ones */
+		if (id_table->vendor_id != pci_dev->id.vendor_id &&
+				id_table->vendor_id != PCI_ANY_ID)
+			continue;
+		if (id_table->device_id != pci_dev->id.device_id &&
+				id_table->device_id != PCI_ANY_ID)
+			continue;
+		if (id_table->subsystem_vendor_id !=
+		    pci_dev->id.subsystem_vendor_id &&
+		    id_table->subsystem_vendor_id != PCI_ANY_ID)
+			continue;
+		if (id_table->subsystem_device_id !=
+		    pci_dev->id.subsystem_device_id &&
+		    id_table->subsystem_device_id != PCI_ANY_ID)
+			continue;
+		if (id_table->class_id != pci_dev->id.class_id &&
+				id_table->class_id != RTE_CLASS_ANY_ID)
+			continue;
+
+		return 1;
+	}
 
 	return 0;
 }

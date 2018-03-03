@@ -47,6 +47,9 @@ extern int enable_link_tap_pktio_ops;
 #ifdef ODP_PKTIO_VIRTIO
 extern int enable_link_virtio_pktio_ops;
 #endif
+#ifdef ODP_PKTIO_IXGBE
+extern int enable_link_ixgbe_pktio_ops;
+#endif
 
 ODP_SUBSYSTEM_CONSTRUCTOR(pktio_ops)
 {
@@ -78,5 +81,8 @@ ODP_SUBSYSTEM_CONSTRUCTOR(pktio_ops)
 #endif
 #ifdef ODP_PKTIO_VIRTIO
 	enable_link_virtio_pktio_ops = 1;
+#endif
+#ifdef ODP_PKTIO_IXGBE
+	enable_link_ixgbe_pktio_ops = 1;
 #endif
 }

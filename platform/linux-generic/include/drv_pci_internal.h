@@ -7,6 +7,9 @@
 #ifndef DRV_PCI_INTERNAL_H_
 #define DRV_PCI_INTERNAL_H_
 
+#include <odp/api/pool.h>
+#include <pktio/ixgbe/dpdk/lib/librte_ether/rte_ethdev.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,6 +36,18 @@ extern "C" {
 #define PCI_ENUMED_DEV "_ODP_PCI_ENUMERATED_DEVICES"
 
 #define PCI_PRI_FMT "%.4" PRIx16 ":%.2" PRIx8 ":%.2" PRIx8 ".%" PRIx8
+
+/** Any PCI device identifier (vendor, device, ...) */
+#define PCI_ANY_ID (0xffff)
+#define RTE_CLASS_ANY_ID (0xffffff)
+
+/** Macro used to help building up tables of device IDs */
+#define RTE_PCI_DEVICE(vend, dev)          \
+	.class_id = RTE_CLASS_ANY_ID,      \
+	.vendor_id = (vend),               \
+	.device_id = (dev),                \
+	.subsystem_vendor_id = PCI_ANY_ID, \
+	.subsystem_device_id = PCI_ANY_ID
 
 /* structure describing a PCI address: */
 typedef struct pci_addr_t {
@@ -109,7 +124,6 @@ typedef struct user_access_ops_t {
 			    const void *data, size_t len, off_t offset);
 } user_access_ops_t;
 
-
 /* structure for PCI device: */
 typedef struct pci_dev_t {
 	struct pci_dev_t *next;
@@ -122,6 +136,14 @@ typedef struct pci_dev_t {
 	const struct user_access_ops_t *user_access_ops;
 	void *driver_data;
 	void *device_data;
+	struct rte_eth_dev_data *data;
+
+	eth_rx_burst_t rx_pkt_burst; /**< Pointer to PMD receive function. */
+	eth_tx_burst_t tx_pkt_burst; /**< Pointer to PMD transmit function. */
+
+	const struct eth_dev_ops *dev_ops; /**< Functions exported by PMD */
+
+	odp_pool_t pool;
 } pci_dev_t;
 
 /* path where PCI devices are shown in sysfs: */
@@ -140,6 +162,12 @@ void pci_ioport_write(pci_dev_t *dev, pci_ioport_t *p,const void *data,
 
 struct pci_dev_t *pci_open_device(const char *);
 int pci_close_device(pci_dev_t *);
+
+int rte_pci_match(const struct pci_id_t *id_table,
+		  const struct pci_dev_t *pci_dev);
+
+pci_dev_t *alloc_dev(void);
+void free_dev(pci_dev_t *dev);
 
 #ifdef __cplusplus
 }

@@ -262,6 +262,21 @@ __LIB__libodp_linux_la_SOURCES = \
 			   pktio/virtio/virtio.c \
 			   pktio/virtio/virtio_pci.c \
 			   pktio/ring.c \
+			   pktio/ixgbe/base/ixgbe_82598.c \
+			   pktio/ixgbe/base/ixgbe_82599.c \
+			   pktio/ixgbe/base/ixgbe_x540.c \
+			   pktio/ixgbe/base/ixgbe_x550.c \
+			   pktio/ixgbe/base/ixgbe_api.c \
+			   pktio/ixgbe/base/ixgbe_common.c \
+			   pktio/ixgbe/base/ixgbe_dcb.c \
+			   pktio/ixgbe/base/ixgbe_dcb_82598.c \
+			   pktio/ixgbe/base/ixgbe_dcb_82599.c \
+			   pktio/ixgbe/base/ixgbe_vf.c \
+			   pktio/ixgbe/base/ixgbe_hv_vf.c \
+			   pktio/ixgbe/base/ixgbe_mbx.c \
+			   pktio/ixgbe/base/ixgbe_phy.c \
+			   pktio/ixgbe/ixgbe_ethdev.c \
+			   pktio/ixgbe/ixgbe_rxtx.c \
 			   pool/generic.c \
 			   pool/subsystem.c \
 			   odp_pkt_queue.c \
@@ -292,6 +307,7 @@ __LIB__libodp_linux_la_SOURCES = \
 			   drv_driver.c \
 			   drv_pci.c \
 			   drv_pci_uio.c \
+			   drv_pci_vfio.c \
 			   drv_shm.c \
 			   drv_spinlock.c
 
